@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Erich Seifert <dev@erichseifert.de>
+Date: Thu, 1 Oct 2026 06:40:17 +0200
+Subject: [PATCH 5/5] Allow disabling PostProject discovery
+
+
+diff --git a/gtk2_ardour/wscript b/gtk2_ardour/wscript
+index 749865b8d..982f0f0b2 100644
+--- a/gtk2_ardour/wscript
++++ b/gtk2_ardour/wscript
+@@ -496,7 +496,8 @@ def enoify (major, minor):
+     return "\\\"\\\""
+ 
+ def options(opt):
+-    pass
++    opt.add_option('--no-postproject', action='store_true', default=False,
++                   dest='no_postproject', help='Do not build PostProject integration')
+ 
+ def configure(conf):
+     conf.load('misc')  # make 'command-output' available
+@@ -513,7 +514,8 @@ def configure(conf):
+     autowaf.check_pkg(conf, 'x11', uselib_store='X11', atleast_version='1.1', mandatory=False)
+     autowaf.check_pkg(conf, 'pangoft2', uselib_store='PANGOFT2', atleast_version='1.36.8', mandatory=False)
+     autowaf.check_pkg(conf, 'fontconfig', uselib_store='FONTCONFIG')
+-    autowaf.check_pkg(conf, 'postproject', uselib_store='POSTPROJECT', mandatory=False)
++    if not Options.options.no_postproject:
++        autowaf.check_pkg(conf, 'postproject', uselib_store='POSTPROJECT', mandatory=False)
+ 
+     conf.check(header_name='unistd.h', define_name='HAVE_UNISTD_H',mandatory=False)
+ 

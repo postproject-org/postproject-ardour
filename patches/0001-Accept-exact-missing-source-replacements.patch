@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Erich Seifert <dev@erichseifert.de>
 Date: Thu, 1 Oct 2026 06:33:10 +0200
-Subject: [PATCH 1/4] Accept exact missing-source replacements
+Subject: [PATCH 1/5] Accept exact missing-source replacements
 
 
 diff --git a/libs/ardour/ardour/session.h b/libs/ardour/ardour/session.h

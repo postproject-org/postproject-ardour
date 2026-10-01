@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Erich Seifert <dev@erichseifert.de>
 Date: Thu, 1 Oct 2026 06:38:35 +0200
-Subject: [PATCH 4/4] Identify missing sources for recovery
+Subject: [PATCH 4/5] Identify missing sources for recovery
 
 
 diff --git a/gtk2_ardour/ardour_ui.cc b/gtk2_ardour/ardour_ui.cc
