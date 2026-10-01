@@ -1,5 +1,6 @@
-# The Ardour revision the patch series applies to. Change both values together
+# The Ardour revision the patch series applies to. Change these values together
 # and rebase the series deliberately; see README.md.
 ARDOUR_URL=https://github.com/Ardour/ardour.git
 ARDOUR_COMMIT=7968ec504ba8b70e6de5c09d0470264581a5e979
-
+ARDOUR_BASE_TAG=9.8
+ARDOUR_HISTORY_DEPTH=128

@@ -113,8 +113,9 @@ inside that tree, then regenerate the outer patch series:
 tools/export.sh
 ```
 
-To update the upstream pin, change both values in `UPSTREAM`, rebase the nested
-branch, regenerate the series, and re-check every source claim in `BRIEF.md`.
+To update the upstream pin, change its URL, commit, base tag, and history depth
+in `UPSTREAM`, rebase the nested branch, regenerate the series, and re-check
+every source claim in `BRIEF.md`.
 
 ## Limitations and removal
 

@@ -17,10 +17,18 @@ elif [ -n "$(git -C "$tree" status --porcelain)" ]; then
     exit 1
 fi
 
-git -C "$tree" fetch -q --depth 1 "$ARDOUR_URL" "$ARDOUR_COMMIT"
+git -C "$tree" fetch -q --depth 1 "$ARDOUR_URL" \
+    "refs/tags/$ARDOUR_BASE_TAG:refs/tags/$ARDOUR_BASE_TAG"
+git -C "$tree" fetch -q --depth "$ARDOUR_HISTORY_DEPTH" \
+    "$ARDOUR_URL" "$ARDOUR_COMMIT"
 fetched=$(git -C "$tree" rev-parse FETCH_HEAD)
 if [ "$fetched" != "$ARDOUR_COMMIT" ]; then
     echo "error: fetched $fetched, expected $ARDOUR_COMMIT" >&2
+    exit 1
+fi
+if ! git -C "$tree" describe --tags --match "$ARDOUR_BASE_TAG" \
+    "$ARDOUR_COMMIT" >/dev/null 2>&1; then
+    echo "error: history depth does not reach Ardour tag $ARDOUR_BASE_TAG" >&2
     exit 1
 fi
 
@@ -32,4 +40,3 @@ while read -r patch; do
         git -C "$tree" am -q "$here/patches/$patch"
 done < "$here/patches/series"
 echo "$tree: postproject-pilot = $ARDOUR_COMMIT + $(git -C "$tree" rev-list --count "$ARDOUR_COMMIT..HEAD") patches"
-
