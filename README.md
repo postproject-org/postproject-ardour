@@ -65,6 +65,7 @@ The patches are intentionally narrow:
 | `0004` | Pass Ardour's persisted source ID into recovery |
 | `0005` | Add the explicit upstream-only build switch |
 | `0006` | Record the pilot source licences |
+| `0007` | Accept a later content-verified known locator |
 
 ## Build and test
 
