@@ -25,10 +25,12 @@ none)
 esac
 
 jobs=${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}
-"$here/ardour/waf" configure \
-    --prefix="$here/install" \
-    --with-backends=jack \
-    --no-phone-home \
-    $postproject_option
-"$here/ardour/waf" build -j"$jobs"
-
+(
+    cd "$here/ardour"
+    ./waf configure \
+        --prefix="$here/install" \
+        --with-backends=jack \
+        --no-phone-home \
+        $postproject_option
+    ./waf build -j"$jobs"
+)
