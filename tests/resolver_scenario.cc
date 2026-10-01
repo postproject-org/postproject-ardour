@@ -93,6 +93,12 @@ try {
 	    production_path.string (), "source-42",
 	    {recovered.parent_path ().string (), duplicate.parent_path ().string ()});
 	require (!ambiguous, "do not choose between content-identical audio files");
+	std::filesystem::remove (duplicate);
+	ArdourPostProject::record_source (production_path.string (), "source-42", recovered.string ());
+	const auto known = ArdourPostProject::resolve_missing_source (
+	    production_path.string (), "source-42", {});
+	require (known && std::filesystem::equivalent (*known, recovered),
+	         "use a content-verified locator confirmed by a later save");
 
 	auto production = postproject::Production::open (production_path.string ()).value ();
 	const auto objects = production.findByExternalIdentifier ("org.ardour:source_id", "source-42").value ();

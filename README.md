@@ -50,10 +50,10 @@ the present content.
 
 During session load, Ardour passes the missing source's persisted ID to the
 adapter. PostProject searches Ardour's audio search paths and the old parent
-directory. Only one `resolved_exact` candidate is accepted. The adapter does
-not choose between duplicate files, and catches `postproject::Exception` at
-the UI boundary so database, fingerprint, and package errors preserve Ardour's
-existing dialog.
+directory. Only one content-verified candidate at a known locator or an exact
+discovered match is accepted. The adapter does not choose between duplicate
+files, and catches `postproject::Exception` at the UI boundary so database,
+fingerprint, and package errors preserve Ardour's existing dialog.
 
 The patches are intentionally narrow:
 
@@ -132,4 +132,3 @@ deleted independently.
 ## License
 
 The patch and helper sources are licensed `GPL-2.0-or-later`, matching Ardour.
-

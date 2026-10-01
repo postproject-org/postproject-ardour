@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Erich Seifert <dev@erichseifert.de>
+Date: Thu, 1 Oct 2026 06:45:56 +0200
+Subject: [PATCH 7/7] Accept verified known audio locations
+
+
+diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
+index 0cf429632..844ef21a0 100644
+--- a/gtk2_ardour/postproject_resolver.cc
++++ b/gtk2_ardour/postproject_resolver.cc
+@@ -104,9 +104,9 @@ resolve_missing_source (const std::string& production_path,
+ 	const auto resolutions = production.resolveAsset (*asset_id, options).value ();
+ 	for (const auto& representation : resolutions) {
+ 		for (const auto& resource : representation.resources) {
+-			if (resource.resource_id != resource_id ||
+-			    resource.state != postproject::ResourceResolutionState::resolved_exact ||
+-			    resource.candidates.size () != 1) {
++			const bool exact = resource.state == postproject::ResourceResolutionState::resolved_exact;
++			const bool known = resource.state == postproject::ResourceResolutionState::online_at_known_locator;
++			if (resource.resource_id != resource_id || (!exact && !known) || resource.candidates.size () != 1) {
+ 				continue;
+ 			}
+ 			return postproject::locatorFilePath (resource.candidates.front ().uri).value ();

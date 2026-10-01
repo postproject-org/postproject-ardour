@@ -22,9 +22,9 @@ pilot proceeded. The maintained patch series now:
   `org.ardour:source_id`;
 - passes that source ID through Ardour's synchronous missing-file signal and
   accepts an exact absolute replacement path, which permits a renamed file;
-- searches Ardour's audio paths by content, accepts exactly one
-  `resolved_exact` candidate, and falls through to the existing dialog for no
-  match, ambiguity, or any exception.
+- searches Ardour's audio paths by content, accepts exactly one verified known
+  locator or `resolved_exact` candidate, and falls through to the existing
+  dialog for no match, ambiguity, or any exception.
 
 The source ID was necessary because PostProject deliberately converts only an
 existing native path to a canonical locator. Reconstructing a missing file URI

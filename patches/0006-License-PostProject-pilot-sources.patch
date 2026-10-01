@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Erich Seifert <dev@erichseifert.de>
 Date: Thu, 1 Oct 2026 06:41:49 +0200
-Subject: [PATCH 6/6] License PostProject pilot sources
+Subject: [PATCH 6/7] License PostProject pilot sources
 
 
 diff --git a/gtk2_ardour/postproject_adapter.cc b/gtk2_ardour/postproject_adapter.cc
