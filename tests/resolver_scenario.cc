@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Erich Seifert <dev@erichseifert.de>
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include "postproject_resolver.h"
 
 #include <postproject/postproject.hpp>
