@@ -10,6 +10,39 @@ Provisional decision: **go for a resolver pilot if the post-Kdenlive/Blender
 evidence review still needs pkg-config, an exception-enabled C++ host, or an
 audio application. Do not use Ardour peak files as PostProject managed jobs.**
 
+## Pilot outcome
+
+The evidence review selected Ardour for all three named gaps, so the resolver
+pilot proceeded. The maintained patch series now:
+
+- discovers the unmodified installed `postproject.pc` optionally and has an
+  explicit `--no-postproject` upstream-only build;
+- records regular audio file sources after session saves under revision origin
+  `org.ardour`, using the persisted source ID as
+  `org.ardour:source_id`;
+- passes that source ID through Ardour's synchronous missing-file signal and
+  accepts an exact absolute replacement path, which permits a renamed file;
+- searches Ardour's audio paths by content, accepts exactly one
+  `resolved_exact` candidate, and falls through to the existing dialog for no
+  match, ambiguity, or any exception.
+
+The source ID was necessary because PostProject deliberately converts only an
+existing native path to a canonical locator. Reconstructing a missing file URI
+inside Ardour would have duplicated platform-sensitive locator semantics. No
+Ardour session XML extension was added.
+
+The installed-package scenario passes locally with a one-second, 48 kHz stereo
+WAV and verifies rename recovery, duplicate ambiguity, revision origin,
+external identity, and typed C++ exception handling. The host adapter also
+compiles against the pinned Ardour headers locally. The complete patched host
+build (with and without PostProject) and the macOS installed-package scenario
+are encoded in CI; they are not presented here as remotely run results.
+
+Interactive Ardour UI verification has not been performed. The synchronous
+fingerprinting/search cost and the environment-variable production selector
+remain pilot limitations. Peak files remain an explicit no-go for managed-job
+semantics.
+
 ## Current behavior
 
 **Source identity and location.** Every `ARDOUR::Source` has a `PBD::ID` and
@@ -122,11 +155,12 @@ The pilot would be a small patch series against Ardour:
 
 - top-level `wscript` and `gtk2_ardour/wscript` for an optional pkg-config
   dependency and adapter source;
-- `gtk2_ardour/ardour_ui.cc` and `ardour_ui_startup.cc` to install the resolver
-  ahead of the existing dialog;
-- one `gtk2_ardour/postproject_adapter.{h,cc}` owning the installed C++ API;
-- one save/session hook to record file sources;
-- a focused test using a temporary session and production.
+- `gtk2_ardour/ardour_ui.cc`, `ardour_ui_startup.cc`, and the missing-file
+  signal to identify and resolve the source ahead of the existing dialog;
+- `gtk2_ardour/postproject_adapter.{h,cc}` for the Ardour boundary and
+  `postproject_resolver.{h,cc}` for the independently executable policy;
+- the existing `StateSaved` signal to record file sources;
+- a focused temporary-production scenario compiled through `postproject.pc`.
 
 No Ardour XML element, source class, peak builder, import engine, or DSP path
 changes.
