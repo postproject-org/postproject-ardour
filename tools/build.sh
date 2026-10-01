@@ -30,6 +30,7 @@ jobs=${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}
     ./waf configure \
         --prefix="$here/install" \
         --with-backends=jack \
+        --cxx17 \
         --no-phone-home \
         $postproject_option
     ./waf build -j"$jobs"
