@@ -1,0 +1,149 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Erich Seifert <dev@erichseifert.de>
+Date: Thu, 1 Oct 2026 06:35:21 +0200
+Subject: [PATCH 2/3] Add PostProject audio resolver
+
+
+diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
+new file mode 100644
+index 000000000..082538d3f
+--- /dev/null
++++ b/gtk2_ardour/postproject_resolver.cc
+@@ -0,0 +1,115 @@
++#include "postproject_resolver.h"
++
++#include <postproject/postproject.hpp>
++
++#include <algorithm>
++#include <filesystem>
++#include <stdexcept>
++#include <string_view>
++
++namespace {
++
++constexpr std::string_view source_id_scheme = "org.ardour:source_id";
++
++void set_origin (postproject::Transaction& transaction, const std::string& message)
++{
++	transaction.setRevisionContext ({{postproject::OriginIdentity {"org.ardour", std::nullopt, std::nullopt}}, message}).value ();
++}
++
++postproject::Uuid single_audio_resource (const postproject::Production& production, const postproject::Uuid& asset_id)
++{
++	for (const auto& representation : production.representations (asset_id).value ()) {
++		if (representation.kind == postproject::RepresentationKind::original &&
++		    representation.structure_kind == postproject::ContentStructureKind::single_resource &&
++		    representation.resources.size () == 1) {
++			return representation.resources.front ().id;
++		}
++	}
++	throw std::runtime_error ("PostProject asset has no single-file original representation");
++}
++
++std::optional<postproject::Uuid> asset_for_source_id (const postproject::Production& production, const std::string& source_id)
++{
++	const auto matches = production.findByExternalIdentifier (source_id_scheme, source_id).value ();
++	if (matches.empty ()) {
++		return std::nullopt;
++	}
++	if (matches.size () != 1 || matches.front ().kind != postproject::ObjectKind::asset) {
++		throw std::runtime_error ("Ardour source identifier is ambiguous");
++	}
++	return matches.front ().id;
++}
++
++} // namespace
++
++namespace ArdourPostProject {
++
++void
++record_source (const std::string& production_path, const std::string& source_id, const std::string& source_path)
++{
++	auto production = postproject::Production::open (production_path).value ();
++	const postproject::ExternalIdentifier identifier {std::string (source_id_scheme), source_id, std::nullopt};
++	const auto bound_asset = asset_for_source_id (production, source_id);
++
++	if (bound_asset) {
++		const auto resource_id = single_audio_resource (production, *bound_asset);
++		auto transaction = production.beginTransaction ().value ();
++		set_origin (transaction, "Record Ardour audio source");
++		transaction.confirmLocator (resource_id, postproject::fileLocator (source_path).value ()).value ();
++		transaction.observeResourceContent (resource_id, source_path).value ();
++		transaction.commit ().value ();
++		return;
++	}
++
++	const postproject::LocatorIdentity locator {postproject::fileLocator (source_path).value (), std::nullopt};
++	const auto known = production.findKnownMediaByLocator (locator, 2).value ();
++	if (known.items.size () > 1) {
++		throw std::runtime_error ("audio source locator identifies several PostProject assets");
++	}
++
++	auto transaction = production.beginTransaction ().value ();
++	set_origin (transaction, "Record Ardour audio source");
++	postproject::Uuid asset_id = known.items.empty ()
++	                                ? transaction.importMedia (source_path, std::filesystem::path (source_path).filename ().string ()).value ()
++	                                : known.items.front ().asset_id;
++	transaction.addExternalIdentifier ({postproject::ObjectKind::asset, asset_id}, identifier).value ();
++	transaction.commit ().value ();
++}
++
++std::optional<std::string>
++resolve_missing_source (const std::string& production_path,
++                        const std::string& missing_path,
++                        const std::vector<std::string>& search_directories)
++{
++	auto production = postproject::Production::open (production_path).value ();
++	const postproject::LocatorIdentity locator {postproject::fileLocator (missing_path).value (), std::nullopt};
++	const auto known = production.findKnownMediaByLocator (locator, 2).value ();
++	if (known.items.size () != 1) {
++		return std::nullopt;
++	}
++
++	postproject::ResolutionOptions options;
++	std::vector<std::string> unique_directories;
++	for (const auto& directory : search_directories) {
++		if (!directory.empty () && std::find (unique_directories.begin (), unique_directories.end (), directory) == unique_directories.end ()) {
++			unique_directories.push_back (directory);
++			options.addSearchDirectory (directory);
++		}
++	}
++	options.setVerification (postproject::VerificationMode::content);
++
++	const auto resolutions = production.resolveAsset (known.items.front ().asset_id, options).value ();
++	for (const auto& representation : resolutions) {
++		for (const auto& resource : representation.resources) {
++			if (resource.resource_id != known.items.front ().resource_id ||
++			    resource.state != postproject::ResourceResolutionState::resolved_exact ||
++			    resource.candidates.size () != 1) {
++				continue;
++			}
++			return postproject::locatorFilePath (resource.candidates.front ().uri).value ();
++		}
++	}
++	return std::nullopt;
++}
++
++} // namespace ArdourPostProject
+diff --git a/gtk2_ardour/postproject_resolver.h b/gtk2_ardour/postproject_resolver.h
+new file mode 100644
+index 000000000..437130e9a
+--- /dev/null
++++ b/gtk2_ardour/postproject_resolver.h
+@@ -0,0 +1,16 @@
++#pragma once
++
++#include <optional>
++#include <string>
++#include <vector>
++
++namespace ArdourPostProject {
++
++void record_source (const std::string& production_path, const std::string& source_id, const std::string& source_path);
++
++std::optional<std::string> resolve_missing_source (const std::string& production_path,
++                                                   const std::string& missing_path,
++                                                   const std::vector<std::string>& search_directories);
++
++} // namespace ArdourPostProject
++

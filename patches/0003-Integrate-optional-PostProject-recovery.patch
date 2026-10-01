@@ -1,0 +1,213 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Erich Seifert <dev@erichseifert.de>
+Date: Thu, 1 Oct 2026 06:35:26 +0200
+Subject: [PATCH 3/3] Integrate optional PostProject recovery
+
+
+diff --git a/gtk2_ardour/ardour_ui_dialogs.cc b/gtk2_ardour/ardour_ui_dialogs.cc
+index c2ebc29a1..f6ecf49c8 100644
+--- a/gtk2_ardour/ardour_ui_dialogs.cc
++++ b/gtk2_ardour/ardour_ui_dialogs.cc
+@@ -76,6 +76,9 @@
+ #include "pianoroll_window.h"
+ #include "plugin_dspload_window.h"
+ #include "plugin_manager_ui.h"
++#ifdef HAVE_POSTPROJECT
++#include "postproject_adapter.h"
++#endif
+ #include "public_editor.h"
+ #include "processor_box.h"
+ #include "rc_option_editor.h"
+@@ -196,6 +199,9 @@ ARDOUR_UI::set_session (Session *s)
+ 	_session->SaveSessionRequested.connect (_session_connections, MISSING_INVALIDATOR, std::bind (&ARDOUR_UI::save_session_at_its_request, this, _1), gui_context());
+ 	_session->StateSaved.connect (_session_connections, MISSING_INVALIDATOR, std::bind (&ARDOUR_UI::update_title, this), gui_context());
+ 	_session->StateSaved.connect (_session_connections, MISSING_INVALIDATOR, std::bind (&ARDOUR_UI::update_path_label, this), gui_context());
++#ifdef HAVE_POSTPROJECT
++	_session->StateSaved.connect (_session_connections, MISSING_INVALIDATOR, std::bind (&ArdourPostProject::record_session, std::ref (*_session)), gui_context());
++#endif
+ 	_session->RecordStateChanged.connect (_session_connections, MISSING_INVALIDATOR, std::bind (&ARDOUR_UI::record_state_changed, this), gui_context());
+ 	_session->TransportStateChange.connect (_session_connections, MISSING_INVALIDATOR, std::bind (&ARDOUR_UI::map_transport_state, this), gui_context());
+ 	_session->DirtyChanged.connect (_session_connections, MISSING_INVALIDATOR, std::bind (&ARDOUR_UI::session_dirty_changed, this), gui_context());
+diff --git a/gtk2_ardour/ardour_ui_startup.cc b/gtk2_ardour/ardour_ui_startup.cc
+index 9b1c1b6f1..a712a832b 100644
+--- a/gtk2_ardour/ardour_ui_startup.cc
++++ b/gtk2_ardour/ardour_ui_startup.cc
+@@ -72,6 +72,9 @@
+ #include "opts.h"
+ #include "pingback.h"
+ #include "plugin_scan_dialog.h"
++#ifdef HAVE_POSTPROJECT
++#include "postproject_adapter.h"
++#endif
+ #include "public_editor.h"
+ #include "splash.h"
+ #include "ui_config.h"
+@@ -126,6 +129,16 @@ ARDOUR_UI::setup_profile ()
+ int
+ ARDOUR_UI::missing_file (Session*s, std::string str, DataType type)
+ {
++#ifdef HAVE_POSTPROJECT
++	if (type == DataType::AUDIO) {
++		const auto replacement = ArdourPostProject::resolve_missing_source (*s, str);
++		if (replacement) {
++			s->set_missing_file_replacement_path (*replacement);
++			return 0;
++		}
++	}
++#endif
++
+ 	MissingFileDialog dialog (_main_window, s, str, type);
+ 
+ 	dialog.show ();
+diff --git a/gtk2_ardour/postproject_adapter.cc b/gtk2_ardour/postproject_adapter.cc
+new file mode 100644
+index 000000000..fa681789e
+--- /dev/null
++++ b/gtk2_ardour/postproject_adapter.cc
+@@ -0,0 +1,94 @@
++#include "postproject_adapter.h"
++
++#include "postproject_resolver.h"
++
++#include <postproject/postproject.hpp>
++
++#include <cstdlib>
++#include <filesystem>
++#include <memory>
++#include <string>
++#include <utility>
++#include <vector>
++
++#include "ardour/audiofilesource.h"
++#include "ardour/session.h"
++#include "pbd/error.h"
++#include "pbd/i18n.h"
++
++namespace {
++
++const char*
++production_path ()
++{
++	const char* path = std::getenv ("ARDOUR_POSTPROJECT_PRODUCTION");
++	return path != nullptr && path[0] != '\0' ? path : nullptr;
++}
++
++void
++report_error (const std::exception& error)
++{
++	PBD::warning << string_compose (_("PostProject integration: %1"), error.what ()) << endmsg;
++}
++
++} // namespace
++
++namespace ArdourPostProject {
++
++void
++record_session (ARDOUR::Session& session) noexcept
++{
++	const char* production = production_path ();
++	if (production == nullptr) {
++		return;
++	}
++
++	std::vector<std::pair<std::string, std::string>> sources;
++	session.foreach_source ([&sources] (const std::shared_ptr<ARDOUR::Source>& source) {
++		const auto audio = std::dynamic_pointer_cast<ARDOUR::AudioFileSource> (source);
++		if (audio) {
++			sources.emplace_back (audio->id ().to_s (), audio->path ());
++		}
++	});
++
++	for (const auto& [source_id, path] : sources) {
++		std::error_code error;
++		if (!std::filesystem::is_regular_file (path, error)) {
++			continue;
++		}
++		try {
++			record_source (production, source_id, path);
++		} catch (const postproject::Exception& error) {
++			report_error (error);
++		} catch (const std::exception& error) {
++			report_error (error);
++		}
++	}
++}
++
++std::optional<std::string>
++resolve_missing_source (ARDOUR::Session& session, const std::string& missing_path) noexcept
++{
++	const char* production = production_path ();
++	if (production == nullptr) {
++		return std::nullopt;
++	}
++
++	auto directories = session.source_search_path (ARDOUR::DataType::AUDIO);
++	const auto parent = std::filesystem::path (missing_path).parent_path ().string ();
++	if (!parent.empty ()) {
++		directories.push_back (parent);
++	}
++
++	try {
++		return resolve_missing_source (production, missing_path, directories);
++	} catch (const postproject::Exception& error) {
++		report_error (error);
++	} catch (const std::exception& error) {
++		report_error (error);
++	}
++	return std::nullopt;
++}
++
++} // namespace ArdourPostProject
++
+diff --git a/gtk2_ardour/postproject_adapter.h b/gtk2_ardour/postproject_adapter.h
+new file mode 100644
+index 000000000..5e54b7b4d
+--- /dev/null
++++ b/gtk2_ardour/postproject_adapter.h
+@@ -0,0 +1,16 @@
++#pragma once
++
++#include <optional>
++#include <string>
++
++namespace ARDOUR {
++class Session;
++}
++
++namespace ArdourPostProject {
++
++void record_session (ARDOUR::Session& session) noexcept;
++std::optional<std::string> resolve_missing_source (ARDOUR::Session& session, const std::string& missing_path) noexcept;
++
++} // namespace ArdourPostProject
++
+diff --git a/gtk2_ardour/wscript b/gtk2_ardour/wscript
+index c3a5e48d9..749865b8d 100644
+--- a/gtk2_ardour/wscript
++++ b/gtk2_ardour/wscript
+@@ -513,6 +513,7 @@ def configure(conf):
+     autowaf.check_pkg(conf, 'x11', uselib_store='X11', atleast_version='1.1', mandatory=False)
+     autowaf.check_pkg(conf, 'pangoft2', uselib_store='PANGOFT2', atleast_version='1.36.8', mandatory=False)
+     autowaf.check_pkg(conf, 'fontconfig', uselib_store='FONTCONFIG')
++    autowaf.check_pkg(conf, 'postproject', uselib_store='POSTPROJECT', mandatory=False)
+ 
+     conf.check(header_name='unistd.h', define_name='HAVE_UNISTD_H',mandatory=False)
+ 
+@@ -646,6 +647,8 @@ def build(bld):
+ 
+     # operate on copy to avoid adding sources twice
+     obj.source    = list(gtk2_ardour_sources)
++    if bld.is_defined('HAVE_POSTPROJECT'):
++        obj.source += [ 'postproject_adapter.cc', 'postproject_resolver.cc' ]
+     obj.target    = 'ardour-' + bld.env['VERSION']
+     obj.includes  = ['.']
+ 
+@@ -678,6 +681,8 @@ def build(bld):
+     obj.install_path = bld.env['DLLDIR']
+     obj.linkflags    = [ bld.env['compiler_flags_dict']['execstack'] ]
+     obj.uselib       = 'UUID FLAC FONTCONFIG GTHREAD OGG PANGOMM CURL DL CANVAS FFTW3F LO TAGLIB XML LILV RUBBERBAND AUBIO LRDF ARCHIVE VAMPSDK VAMPHOSTSDK GLIBMM GIOMM PANGOFT2 LIBPNG LIBJPEG'
++    if bld.is_defined('HAVE_POSTPROJECT'):
++        obj.uselib += ' POSTPROJECT'
+ 
+     if bld.env['build_target'] == 'msvc':
+         obj.use += ['liblua']
