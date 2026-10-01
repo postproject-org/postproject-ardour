@@ -1,0 +1,109 @@
+name: Ardour pilot against PostProject main
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      postproject_ref:
+        description: PostProject revision to build against
+        required: false
+        type: string
+        default: main
+  workflow_call:
+    inputs:
+      postproject_ref:
+        required: false
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  ardour:
+    name: Ardour ${{ matrix.postproject }} PostProject
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        postproject: [with, without]
+    steps:
+      - name: Install Ardour build dependencies
+        run: pacman -Syu --noconfirm --needed git base-devel cmake rust pkgconf ripgrep ardour cppunit boost
+      - uses: actions/checkout@v7
+        with:
+          repository: postproject-org/postproject-ardour
+      - uses: actions/checkout@v7
+        if: matrix.postproject == 'with'
+        with:
+          repository: postproject-org/postproject
+          ref: ${{ inputs.postproject_ref || 'main' }}
+          path: postproject
+      - name: Build and install PostProject
+        if: matrix.postproject == 'with'
+        run: |
+          cargo build --release --locked -p postproject-ffi --manifest-path postproject/Cargo.toml
+          cmake -S postproject -B postproject/target/package \
+            -DPOSTPROJECT_LIBRARY="$PWD/postproject/target/release/libpostproject.so" \
+            -DPOSTPROJECT_STATIC_LIBRARY="$PWD/postproject/target/release/libpostproject.a" \
+            -DCMAKE_INSTALL_PREFIX="$PWD/install"
+          cmake --install postproject/target/package
+      - name: Apply the patch series
+        run: tools/checkout.sh
+      - name: Build Ardour
+        run: tools/build.sh ${{ matrix.postproject == 'with' && 'install' || 'none' }}
+      - name: Test installed pkg-config and resolver path
+        if: matrix.postproject == 'with'
+        run: |
+          mkdir -p evidence
+          POSTPROJECT_ABI_TRACE="$PWD/evidence/ardour-resolver-abi.txt" tools/test.sh install
+          grep -q 'catch (const postproject::Exception' ardour/gtk2_ardour/postproject_adapter.cc
+          printf '%s\n' 'Result<T>::value()' 'postproject::Exception' 'pkg-config' \
+            > evidence/ardour-cpp.txt
+      - name: Verify upstream-only build
+        if: matrix.postproject == 'without'
+        run: |
+          if rg --files ardour/build | grep -q 'postproject_.*\.o$'; then
+            echo 'PostProject object unexpectedly present' >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v6
+        if: matrix.postproject == 'with'
+        with:
+          name: ardour-postproject-usage-linux
+          path: evidence/
+          if-no-files-found: error
+
+  resolver-macos:
+    name: Installed pkg-config resolver on macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: postproject-org/postproject-ardour
+      - uses: actions/checkout@v7
+        with:
+          repository: postproject-org/postproject
+          ref: ${{ inputs.postproject_ref || 'main' }}
+          path: postproject
+      - name: Build and install PostProject
+        run: |
+          cargo build --release --locked -p postproject-ffi --manifest-path postproject/Cargo.toml
+          cmake -S postproject -B postproject/target/package \
+            -DPOSTPROJECT_LIBRARY="$PWD/postproject/target/release/libpostproject.dylib" \
+            -DPOSTPROJECT_STATIC_LIBRARY="$PWD/postproject/target/release/libpostproject.a" \
+            -DCMAKE_INSTALL_PREFIX="$PWD/install"
+          cmake --install postproject/target/package
+      - name: Apply the patch series
+        run: tools/checkout.sh
+      - name: Test the installed package
+        run: |
+          mkdir -p evidence
+          POSTPROJECT_ABI_TRACE="$PWD/evidence/ardour-resolver-abi.txt" tools/test.sh install
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ardour-postproject-usage-macos
+          path: evidence/
+          if-no-files-found: error
