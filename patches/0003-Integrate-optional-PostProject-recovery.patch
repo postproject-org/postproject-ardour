@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Erich Seifert <dev@erichseifert.de>
 Date: Thu, 1 Oct 2026 06:35:26 +0200
-Subject: [PATCH 3/3] Integrate optional PostProject recovery
+Subject: [PATCH 3/4] Integrate optional PostProject recovery
 
 
 diff --git a/gtk2_ardour/ardour_ui_dialogs.cc b/gtk2_ardour/ardour_ui_dialogs.cc

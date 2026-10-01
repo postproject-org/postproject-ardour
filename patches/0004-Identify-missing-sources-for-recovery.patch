@@ -1,0 +1,194 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Erich Seifert <dev@erichseifert.de>
+Date: Thu, 1 Oct 2026 06:38:35 +0200
+Subject: [PATCH 4/4] Identify missing sources for recovery
+
+
+diff --git a/gtk2_ardour/ardour_ui.cc b/gtk2_ardour/ardour_ui.cc
+index 7d34784a0..23b7c7ddf 100644
+--- a/gtk2_ardour/ardour_ui.cc
++++ b/gtk2_ardour/ardour_ui.cc
+@@ -449,7 +449,7 @@ ARDOUR_UI::ARDOUR_UI (int *argcp, char **argvp[], const char* localedir)
+ 
+ 	/* handle requests to deal with missing files */
+ 
+-	ARDOUR::Session::MissingFile.connect_same_thread (forever_connections, std::bind (&ARDOUR_UI::missing_file, this, _1, _2, _3));
++	ARDOUR::Session::MissingFile.connect_same_thread (forever_connections, std::bind (&ARDOUR_UI::missing_file, this, _1, _2, _3, _4));
+ 
+ 	/* and ambiguous files */
+ 
+diff --git a/gtk2_ardour/ardour_ui.h b/gtk2_ardour/ardour_ui.h
+index 919dc6420..0f47a027e 100644
+--- a/gtk2_ardour/ardour_ui.h
++++ b/gtk2_ardour/ardour_ui.h
+@@ -807,7 +807,7 @@ private:
+ 	void queue_finish ();
+ 	void fontconfig_dialog ();
+ 
+-	int missing_file (ARDOUR::Session*s, std::string str, ARDOUR::DataType type);
++	int missing_file (ARDOUR::Session*s, std::string str, ARDOUR::DataType type, std::string source_id);
+ 	int ambiguous_file (std::string file, std::vector<std::string> hits);
+ 
+ 	bool click_button_clicked (GdkEventButton *);
+@@ -873,4 +873,3 @@ private:
+ 
+ 	PBD::ScopedConnectionList clock_state_connection;
+ };
+-
+diff --git a/gtk2_ardour/ardour_ui_startup.cc b/gtk2_ardour/ardour_ui_startup.cc
+index a712a832b..172805fd4 100644
+--- a/gtk2_ardour/ardour_ui_startup.cc
++++ b/gtk2_ardour/ardour_ui_startup.cc
+@@ -127,11 +127,11 @@ ARDOUR_UI::setup_profile ()
+ }
+ 
+ int
+-ARDOUR_UI::missing_file (Session*s, std::string str, DataType type)
++ARDOUR_UI::missing_file (Session*s, std::string str, DataType type, std::string source_id)
+ {
+ #ifdef HAVE_POSTPROJECT
+ 	if (type == DataType::AUDIO) {
+-		const auto replacement = ArdourPostProject::resolve_missing_source (*s, str);
++		const auto replacement = ArdourPostProject::resolve_missing_source (*s, source_id, str);
+ 		if (replacement) {
+ 			s->set_missing_file_replacement_path (*replacement);
+ 			return 0;
+diff --git a/gtk2_ardour/postproject_adapter.cc b/gtk2_ardour/postproject_adapter.cc
+index fa681789e..4285ebaf0 100644
+--- a/gtk2_ardour/postproject_adapter.cc
++++ b/gtk2_ardour/postproject_adapter.cc
+@@ -67,7 +67,7 @@ record_session (ARDOUR::Session& session) noexcept
+ }
+ 
+ std::optional<std::string>
+-resolve_missing_source (ARDOUR::Session& session, const std::string& missing_path) noexcept
++resolve_missing_source (ARDOUR::Session& session, const std::string& source_id, const std::string& missing_path) noexcept
+ {
+ 	const char* production = production_path ();
+ 	if (production == nullptr) {
+@@ -81,7 +81,7 @@ resolve_missing_source (ARDOUR::Session& session, const std::string& missing_pat
+ 	}
+ 
+ 	try {
+-		return resolve_missing_source (production, missing_path, directories);
++		return resolve_missing_source (production, source_id, directories);
+ 	} catch (const postproject::Exception& error) {
+ 		report_error (error);
+ 	} catch (const std::exception& error) {
+@@ -91,4 +91,3 @@ resolve_missing_source (ARDOUR::Session& session, const std::string& missing_pat
+ }
+ 
+ } // namespace ArdourPostProject
+-
+diff --git a/gtk2_ardour/postproject_adapter.h b/gtk2_ardour/postproject_adapter.h
+index 5e54b7b4d..f52404369 100644
+--- a/gtk2_ardour/postproject_adapter.h
++++ b/gtk2_ardour/postproject_adapter.h
+@@ -10,7 +10,8 @@ class Session;
+ namespace ArdourPostProject {
+ 
+ void record_session (ARDOUR::Session& session) noexcept;
+-std::optional<std::string> resolve_missing_source (ARDOUR::Session& session, const std::string& missing_path) noexcept;
++std::optional<std::string> resolve_missing_source (ARDOUR::Session& session,
++                                                   const std::string& source_id,
++                                                   const std::string& missing_path) noexcept;
+ 
+ } // namespace ArdourPostProject
+-
+diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
+index 082538d3f..ee0d8fe5f 100644
+--- a/gtk2_ardour/postproject_resolver.cc
++++ b/gtk2_ardour/postproject_resolver.cc
+@@ -78,15 +78,15 @@ record_source (const std::string& production_path, const std::string& source_id,
+ 
+ std::optional<std::string>
+ resolve_missing_source (const std::string& production_path,
+-                        const std::string& missing_path,
++                        const std::string& source_id,
+                         const std::vector<std::string>& search_directories)
+ {
+ 	auto production = postproject::Production::open (production_path).value ();
+-	const postproject::LocatorIdentity locator {postproject::fileLocator (missing_path).value (), std::nullopt};
+-	const auto known = production.findKnownMediaByLocator (locator, 2).value ();
+-	if (known.items.size () != 1) {
++	const auto asset_id = asset_for_source_id (production, source_id);
++	if (!asset_id) {
+ 		return std::nullopt;
+ 	}
++	const auto resource_id = single_audio_resource (production, *asset_id);
+ 
+ 	postproject::ResolutionOptions options;
+ 	std::vector<std::string> unique_directories;
+@@ -98,10 +98,10 @@ resolve_missing_source (const std::string& production_path,
+ 	}
+ 	options.setVerification (postproject::VerificationMode::content);
+ 
+-	const auto resolutions = production.resolveAsset (known.items.front ().asset_id, options).value ();
++	const auto resolutions = production.resolveAsset (*asset_id, options).value ();
+ 	for (const auto& representation : resolutions) {
+ 		for (const auto& resource : representation.resources) {
+-			if (resource.resource_id != known.items.front ().resource_id ||
++			if (resource.resource_id != resource_id ||
+ 			    resource.state != postproject::ResourceResolutionState::resolved_exact ||
+ 			    resource.candidates.size () != 1) {
+ 				continue;
+diff --git a/gtk2_ardour/postproject_resolver.h b/gtk2_ardour/postproject_resolver.h
+index 437130e9a..cf2adeab4 100644
+--- a/gtk2_ardour/postproject_resolver.h
++++ b/gtk2_ardour/postproject_resolver.h
+@@ -9,8 +9,7 @@ namespace ArdourPostProject {
+ void record_source (const std::string& production_path, const std::string& source_id, const std::string& source_path);
+ 
+ std::optional<std::string> resolve_missing_source (const std::string& production_path,
+-                                                   const std::string& missing_path,
++                                                   const std::string& source_id,
+                                                    const std::vector<std::string>& search_directories);
+ 
+ } // namespace ArdourPostProject
+-
+diff --git a/libs/ardour/ardour/session.h b/libs/ardour/ardour/session.h
+index ceaa3f904..e56f68346 100644
+--- a/libs/ardour/ardour/session.h
++++ b/libs/ardour/ardour/session.h
+@@ -1327,7 +1327,7 @@ public:
+ 	   -1: just mark this one missing
+ 	   any other value: as -1
+ 	*/
+-	static PBD::Signal<int(Session*,std::string,DataType)> MissingFile;
++	static PBD::Signal<int(Session*,std::string,DataType,std::string)> MissingFile;
+ 
+ 	void set_missing_file_replacement (const std::string& mfr) {
+ 		_missing_file_replacement = mfr;
+diff --git a/libs/ardour/session.cc b/libs/ardour/session.cc
+index 8dd299bc6..945a6f980 100644
+--- a/libs/ardour/session.cc
++++ b/libs/ardour/session.cc
+@@ -174,7 +174,7 @@ PBD::Signal<int()> Session::AskAboutPendingState;
+ PBD::Signal<int(samplecnt_t, samplecnt_t)> Session::AskAboutSampleRateMismatch;
+ PBD::Signal<void(samplecnt_t, samplecnt_t)> Session::NotifyAboutSampleRateMismatch;
+ PBD::Signal<void()> Session::SendFeedback;
+-PBD::Signal<int(Session*,std::string,DataType)> Session::MissingFile;
++PBD::Signal<int(Session*,std::string,DataType,std::string)> Session::MissingFile;
+ 
+ PBD::Signal<void(samplepos_t)> Session::StartTimeChanged;
+ PBD::Signal<void(samplepos_t)> Session::EndTimeChanged;
+@@ -8457,4 +8457,3 @@ Session::rec_enabled_triggerbox () const
+ 
+ 	return re_tb;
+ }
+-
+diff --git a/libs/ardour/session_state.cc b/libs/ardour/session_state.cc
+index 3c38b379b..6eb39e246 100644
+--- a/libs/ardour/session_state.cc
++++ b/libs/ardour/session_state.cc
+@@ -3465,7 +3465,9 @@ retry:
+ 			}
+ 
+ 			if (!no_questions_about_missing_files) {
+-				user_choice = MissingFile (this, err.path, err.type).value_or (-1);
++				std::string source_id;
++				srcnode.get_property ("id", source_id);
++				user_choice = MissingFile (this, err.path, err.type, source_id).value_or (-1);
+ 			} else {
+ 				user_choice = -2;
+ 			}
