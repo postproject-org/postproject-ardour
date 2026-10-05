@@ -28,7 +28,7 @@ index 000000000..082538d3f
 +	transaction.setRevisionContext ({{postproject::OriginIdentity {"org.ardour", std::nullopt, std::nullopt}}, message}).value ();
 +}
 +
-+postproject::Uuid single_audio_resource (const postproject::Production& production, const postproject::Uuid& asset_id)
++postproject::Uuid single_audio_resource (const postproject::Production& production, const postproject::AssetId& asset_id)
 +{
 +	for (const auto& representation : production.representations (asset_id).value ()) {
 +		if (representation.kind == postproject::RepresentationKind::original &&
@@ -40,7 +40,7 @@ index 000000000..082538d3f
 +	throw std::runtime_error ("PostProject asset has no single-file original representation");
 +}
 +
-+std::optional<postproject::Uuid> asset_for_source_id (const postproject::Production& production, const std::string& source_id)
++std::optional<postproject::AssetId> asset_for_source_id (const postproject::Production& production, const std::string& source_id)
 +{
 +	const auto matches = production.findByExternalIdentifier (source_id_scheme, source_id).value ();
 +	if (matches.empty ()) {
@@ -49,7 +49,7 @@ index 000000000..082538d3f
 +	if (matches.size () != 1 || matches.front ().kind != postproject::ObjectKind::asset) {
 +		throw std::runtime_error ("Ardour source identifier is ambiguous");
 +	}
-+	return matches.front ().id;
++	return matches.front ().assetId ().value ();
 +}
 +
 +} // namespace
@@ -81,10 +81,10 @@ index 000000000..082538d3f
 +
 +	auto transaction = production.beginTransaction ().value ();
 +	set_origin (transaction, "Record Ardour audio source");
-+	postproject::Uuid asset_id = known.items.empty ()
++	postproject::AssetId asset_id = known.items.empty ()
 +	                                ? transaction.importMedia (source_path, std::filesystem::path (source_path).filename ().string ()).value ()
 +	                                : known.items.front ().asset_id;
-+	transaction.addExternalIdentifier ({postproject::ObjectKind::asset, asset_id}, identifier).value ();
++	transaction.addExternalIdentifier (postproject::ObjectRef::asset (asset_id), identifier).value ();
 +	transaction.commit ().value ();
 +}
 +
