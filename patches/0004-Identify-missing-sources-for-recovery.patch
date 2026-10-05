@@ -117,11 +117,11 @@ index 082538d3f..ee0d8fe5f 100644
  	}
 +	const auto resource_id = single_audio_resource (production, *asset_id);
  
- 	postproject::ResolutionOptions options;
+ 	auto options = postproject::ResolutionOptions::create().value();
  	std::vector<std::string> unique_directories;
 @@ -98,10 +98,10 @@ resolve_missing_source (const std::string& production_path,
  	}
- 	options.setVerification (postproject::VerificationMode::content);
+ 	options.setVerification (postproject::VerificationMode::content).value();
  
 -	const auto resolutions = production.resolveAsset (known.items.front ().asset_id, options).value ();
 +	const auto resolutions = production.resolveAsset (*asset_id, options).value ();

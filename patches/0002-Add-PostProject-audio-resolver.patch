@@ -100,15 +100,15 @@ index 000000000..082538d3f
 +		return std::nullopt;
 +	}
 +
-+	postproject::ResolutionOptions options;
++	auto options = postproject::ResolutionOptions::create().value();
 +	std::vector<std::string> unique_directories;
 +	for (const auto& directory : search_directories) {
 +		if (!directory.empty () && std::find (unique_directories.begin (), unique_directories.end (), directory) == unique_directories.end ()) {
 +			unique_directories.push_back (directory);
-+			options.addSearchDirectory (directory);
++			options.addSearchDirectory (directory).value();
 +		}
 +	}
-+	options.setVerification (postproject::VerificationMode::content);
++	options.setVerification (postproject::VerificationMode::content).value();
 +
 +	const auto resolutions = production.resolveAsset (known.items.front ().asset_id, options).value ();
 +	for (const auto& representation : resolutions) {
