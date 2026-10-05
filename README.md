@@ -90,8 +90,10 @@ tools/build.sh install
 tools/test.sh install
 ```
 
-`tools/test.sh` compiles the same resolver source using only flags from
-`postproject.pc`. Its executable creates valid one-second, 48 kHz stereo WAV
+`tools/test.sh` compiles the resolver using only installed `postproject.pc`
+flags. Its optional third argument selects another already patched source tree
+without replacing an existing checkout. The executable creates valid
+one-second, 48 kHz stereo WAV
 audio, records it, renames it, resolves the new name by content, adds a second
 content-identical file, and verifies that ambiguity has no automatic winner.
 It also catches a typed PostProject exception. Set `POSTPROJECT_ABI_TRACE` to
