@@ -70,6 +70,7 @@ The patches are intentionally narrow:
 | `0005` | Add the explicit upstream-only build switch |
 | `0006` | Record the pilot source licences |
 | `0007` | Accept a later content-verified known locator |
+| `0008` | Inspect typed object references through their read-only discriminator |
 
 ## Build and test
 

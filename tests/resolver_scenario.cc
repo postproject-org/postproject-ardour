@@ -102,7 +102,7 @@ try {
 
 	auto production = postproject::Production::open (production_path.string ()).value ();
 	const auto objects = production.findByExternalIdentifier ("org.ardour:source_id", "source-42").value ();
-	require (objects.size () == 1 && objects.front ().kind == postproject::ObjectKind::asset,
+        require (objects.size () == 1 && objects.front ().kind () == postproject::ObjectKind::asset,
 	         "attach the Ardour source identifier to one asset");
 	const auto revision = production.latestRevision ().value ();
 	require (revision && revision->origin && revision->origin->name == "org.ardour",

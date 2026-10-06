@@ -1,0 +1,25 @@
+From 5671c14b1b6fe8ef6bff375ff60d6962a94c1b5c Mon Sep 17 00:00:00 2001
+From: Erich Seifert <dev@erichseifert.de>
+Date: Tue, 6 Oct 2026 23:58:35 +0200
+Subject: [PATCH] refactor: inspect typed object-reference alternatives
+
+---
+ gtk2_ardour/postproject_resolver.cc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
+index adc3c85e5..bcee938c2 100644
+--- a/gtk2_ardour/postproject_resolver.cc
++++ b/gtk2_ardour/postproject_resolver.cc
+@@ -37,7 +37,7 @@ std::optional<postproject::AssetId> asset_for_source_id (const postproject::Prod
+ 	if (matches.empty ()) {
+ 		return std::nullopt;
+ 	}
+-	if (matches.size () != 1 || matches.front ().kind != postproject::ObjectKind::asset) {
++	if (matches.size () != 1 || matches.front ().kind () != postproject::ObjectKind::asset) {
+ 		throw std::runtime_error ("Ardour source identifier is ambiguous");
+ 	}
+ 	return matches.front ().assetId ().value ();
+-- 
+2.55.0
+
