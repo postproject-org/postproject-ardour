@@ -28,7 +28,7 @@ index 000000000..082538d3f
 +	transaction.setRevisionContext ({{postproject::OriginIdentity {"org.ardour", std::nullopt, std::nullopt}}, message}).value ();
 +}
 +
-+postproject::Uuid single_audio_resource (const postproject::Production& production, const postproject::AssetId& asset_id)
++postproject::ResourceId single_audio_resource (const postproject::Production& production, const postproject::AssetId& asset_id)
 +{
 +	for (const auto& representation : production.representations (asset_id).value ()) {
 +		if (representation.kind == postproject::RepresentationKind::original &&
