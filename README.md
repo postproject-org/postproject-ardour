@@ -72,6 +72,8 @@ The patches are intentionally narrow:
 | `0007` | Accept a later content-verified known locator |
 | `0008` | Inspect typed object references through their read-only discriminator |
 | `0009` | Observe saved audio through its decision view; reject truncated representation reads |
+| `0010` | Refuse multiple eligible originals through one retained view |
+| `0011` | Inspect the checked representation content value |
 
 ## Build and test
 
