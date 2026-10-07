@@ -71,6 +71,7 @@ The patches are intentionally narrow:
 | `0006` | Record the pilot source licences |
 | `0007` | Accept a later content-verified known locator |
 | `0008` | Inspect typed object references through their read-only discriminator |
+| `0009` | Observe saved audio through its decision view; reject truncated representation reads |
 
 ## Build and test
 

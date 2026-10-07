@@ -6,6 +6,7 @@
 #include <postproject/postproject.hpp>
 
 #include <cstdint>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -102,8 +103,19 @@ try {
 
 	auto production = postproject::Production::open (production_path.string ()).value ();
 	const auto objects = production.findByExternalIdentifier ("org.ardour:source_id", "source-42").value ();
-        require (objects.size () == 1 && objects.front ().kind () == postproject::ObjectKind::asset,
+	require (objects.size () == 1 && objects.front ().kind () == postproject::ObjectKind::asset,
 	         "attach the Ardour source identifier to one asset");
+	const auto before_facts = production.latestRevision ().value ();
+	const auto modified = std::filesystem::last_write_time (recovered);
+	std::filesystem::last_write_time (recovered, modified + std::chrono::seconds (5));
+	ArdourPostProject::record_source (production_path.string (), "source-42", recovered.string ());
+	const auto facts_revision = production.latestRevision ().value ();
+	require (before_facts && facts_revision && facts_revision->sequence == before_facts->sequence + 1,
+	         "a repeated save records changed file facts without changing content");
+	const auto facts_events = production.revisionEvents (facts_revision->id).value ();
+	require (facts_events.size () == 1 &&
+	         std::holds_alternative<postproject::ResourceFileFactsObservedEvent> (facts_events.front ().payload),
+	         "the save owns its file-facts journal event");
 	const auto revision = production.latestRevision ().value ();
 	require (revision && revision->origin && revision->origin->name == "org.ardour",
 	         "record Ardour as revision origin");
