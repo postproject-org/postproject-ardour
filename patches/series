@@ -7,3 +7,4 @@
 0007-Accept-verified-known-audio-locations.patch
 0008-Inspect-typed-object-reference-alternatives.patch
 0009-Observe-saved-audio-through-its-decision-view.patch
+0010-Refuse-ambiguous-original-audio-representations.patch

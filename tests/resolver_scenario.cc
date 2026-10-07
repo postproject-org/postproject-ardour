@@ -128,6 +128,31 @@ try {
 	}
 	require (caught, "translate a PostProject Result through the exception-enabled projection");
 
+	const auto asset_id = objects.front ().assetId ().value ();
+	{
+		auto edit = production.beginTransaction ().value ();
+		edit.addRepresentation (asset_id, postproject::RepresentationKind::original,
+		                        postproject::MediaSource (recovered.string ())).value ();
+		const auto receipt = edit.commit ().value ();
+		require (receipt.revision.has_value (), "commit a distinct second original");
+	}
+	const auto before_ambiguity = production.latestRevision ().value ();
+	for (bool save : {false, true}) {
+		bool refused = false;
+		try {
+			if (save) {
+				ArdourPostProject::record_source (production_path.string (), "source-42", recovered.string ());
+			} else {
+				ArdourPostProject::resolve_missing_source (production_path.string (), "source-42", {});
+			}
+		} catch (const postproject::Exception& error) {
+			refused = error.error ().code () == postproject::ErrorCode::ambiguous_resolution;
+		}
+		require (refused, "save and resolve refuse several original representations");
+	}
+	require (production.latestRevision ().value ()->id == before_ambiguity->id,
+	         "ambiguous decisions do not mutate the production");
+
 	std::cout << "resolved renamed 48 kHz stereo audio without choosing an ambiguity\n";
 	return 0;
 } catch (const std::exception& error) {

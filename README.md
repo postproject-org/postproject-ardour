@@ -98,7 +98,9 @@ without replacing an existing checkout. The executable creates valid
 one-second, 48 kHz stereo WAV
 audio, records it, renames it, resolves the new name by content, adds a second
 content-identical file, and verifies that ambiguity has no automatic winner.
-It also catches a typed PostProject exception. Set `POSTPROJECT_ABI_TRACE` to
+Save and resolve also refuse several single-file originals; resolution uses
+a retained read view. The scenario catches typed PostProject exceptions.
+Set `POSTPROJECT_ABI_TRACE` to
 collect the operations exercised by that scenario.
 
 To prove the integration is optional, build the same patch series without it:
