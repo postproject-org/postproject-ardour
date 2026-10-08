@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Erich Seifert <dev@erichseifert.de>
 Date: Thu, 1 Oct 2026 06:35:26 +0200
-Subject: [PATCH 3/7] Integrate optional PostProject recovery
+Subject: [PATCH 3/5] Integrate optional PostProject recovery
 
 
 diff --git a/gtk2_ardour/ardour_ui_dialogs.cc b/gtk2_ardour/ardour_ui_dialogs.cc
@@ -61,10 +61,13 @@ index 9b1c1b6f1..a712a832b 100644
  	dialog.show ();
 diff --git a/gtk2_ardour/postproject_adapter.cc b/gtk2_ardour/postproject_adapter.cc
 new file mode 100644
-index 000000000..fa681789e
+index 000000000..5759c3c6f
 --- /dev/null
 +++ b/gtk2_ardour/postproject_adapter.cc
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,96 @@
++// SPDX-FileCopyrightText: 2026 Erich Seifert <dev@erichseifert.de>
++// SPDX-License-Identifier: GPL-2.0-or-later
++
 +#include "postproject_adapter.h"
 +
 +#include "postproject_resolver.h"
@@ -134,7 +137,7 @@ index 000000000..fa681789e
 +}
 +
 +std::optional<std::string>
-+resolve_missing_source (ARDOUR::Session& session, const std::string& missing_path) noexcept
++resolve_missing_source (ARDOUR::Session& session, const std::string& source_id, const std::string& missing_path) noexcept
 +{
 +	const char* production = production_path ();
 +	if (production == nullptr) {
@@ -148,7 +151,7 @@ index 000000000..fa681789e
 +	}
 +
 +	try {
-+		return resolve_missing_source (production, missing_path, directories);
++		return resolve_missing_source (production, source_id, directories);
 +	} catch (const postproject::Exception& error) {
 +		report_error (error);
 +	} catch (const std::exception& error) {
@@ -158,13 +161,15 @@ index 000000000..fa681789e
 +}
 +
 +} // namespace ArdourPostProject
-+
 diff --git a/gtk2_ardour/postproject_adapter.h b/gtk2_ardour/postproject_adapter.h
 new file mode 100644
-index 000000000..5e54b7b4d
+index 000000000..1645f548f
 --- /dev/null
 +++ b/gtk2_ardour/postproject_adapter.h
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,20 @@
++// SPDX-FileCopyrightText: 2026 Erich Seifert <dev@erichseifert.de>
++// SPDX-License-Identifier: GPL-2.0-or-later
++
 +#pragma once
 +
 +#include <optional>
@@ -177,12 +182,13 @@ index 000000000..5e54b7b4d
 +namespace ArdourPostProject {
 +
 +void record_session (ARDOUR::Session& session) noexcept;
-+std::optional<std::string> resolve_missing_source (ARDOUR::Session& session, const std::string& missing_path) noexcept;
++std::optional<std::string> resolve_missing_source (ARDOUR::Session& session,
++                                                   const std::string& source_id,
++                                                   const std::string& missing_path) noexcept;
 +
 +} // namespace ArdourPostProject
-+
 diff --git a/gtk2_ardour/wscript b/gtk2_ardour/wscript
-index c3a5e48d9..749865b8d 100644
+index c3a5e48d9..af0e5cb8e 100644
 --- a/gtk2_ardour/wscript
 +++ b/gtk2_ardour/wscript
 @@ -513,6 +513,7 @@ def configure(conf):

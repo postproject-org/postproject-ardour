@@ -1,15 +1,18 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Erich Seifert <dev@erichseifert.de>
 Date: Thu, 1 Oct 2026 06:35:21 +0200
-Subject: [PATCH 2/7] Add PostProject audio resolver
+Subject: [PATCH 2/5] Add PostProject audio resolver
 
 
 diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
 new file mode 100644
-index 000000000..082538d3f
+index 000000000..79f80969a
 --- /dev/null
 +++ b/gtk2_ardour/postproject_resolver.cc
-@@ -0,0 +1,115 @@
+@@ -0,0 +1,140 @@
++// SPDX-FileCopyrightText: 2026 Erich Seifert <dev@erichseifert.de>
++// SPDX-License-Identifier: GPL-2.0-or-later
++
 +#include "postproject_resolver.h"
 +
 +#include <postproject/postproject.hpp>
@@ -28,25 +31,40 @@ index 000000000..082538d3f
 +	transaction.setRevisionContext ({{postproject::OriginIdentity {"org.ardour", std::nullopt, std::nullopt}}, message}).value ();
 +}
 +
-+postproject::ResourceId single_audio_resource (const postproject::Production& production, const postproject::AssetId& asset_id)
++template <typename Reader>
++postproject::Resource single_audio_resource (const Reader& production, const postproject::AssetId& asset_id)
 +{
-+	for (const auto& representation : production.representations (asset_id).value ()) {
++	const auto page = production.representations (asset_id, 1000).value ();
++	if (page.next_cursor) {
++		throw postproject::Exception (postproject::Error (postproject::ErrorCode::unsupported,
++		                                               "audio representation decision exceeds 1000 entries"));
++	}
++	std::optional<postproject::Resource> selected;
++	for (const auto& representation : page.items) {
 +		if (representation.kind == postproject::RepresentationKind::original &&
-+		    representation.structure_kind == postproject::ContentStructureKind::single_resource &&
++		    representation.structureKind() == postproject::ContentStructureKind::single_resource &&
 +		    representation.resources.size () == 1) {
-+			return representation.resources.front ().id;
++			if (selected) {
++				throw postproject::Exception (postproject::Error (postproject::ErrorCode::ambiguous_resolution,
++				                                               "audio asset has several single-file originals"));
++			}
++			selected = representation.resources.front ();
 +		}
++	}
++	if (selected) {
++		return *selected;
 +	}
 +	throw std::runtime_error ("PostProject asset has no single-file original representation");
 +}
 +
-+std::optional<postproject::AssetId> asset_for_source_id (const postproject::Production& production, const std::string& source_id)
++template <typename Reader>
++std::optional<postproject::AssetId> asset_for_source_id (const Reader& production, const std::string& source_id)
 +{
 +	const auto matches = production.findByExternalIdentifier (source_id_scheme, source_id).value ();
 +	if (matches.empty ()) {
 +		return std::nullopt;
 +	}
-+	if (matches.size () != 1 || matches.front ().kind != postproject::ObjectKind::asset) {
++	if (matches.size () != 1 || matches.front ().kind () != postproject::ObjectKind::asset) {
 +		throw std::runtime_error ("Ardour source identifier is ambiguous");
 +	}
 +	return matches.front ().assetId ().value ();
@@ -60,26 +78,32 @@ index 000000000..082538d3f
 +record_source (const std::string& production_path, const std::string& source_id, const std::string& source_path)
 +{
 +	auto production = postproject::Production::open (production_path).value ();
++	auto view = production.readSession ().value ();
 +	const postproject::ExternalIdentifier identifier {std::string (source_id_scheme), source_id, std::nullopt};
-+	const auto bound_asset = asset_for_source_id (production, source_id);
++	const auto bound_asset = asset_for_source_id (view, source_id);
 +
 +	if (bound_asset) {
-+		const auto resource_id = single_audio_resource (production, *bound_asset);
-+		auto transaction = production.beginTransaction ().value ();
++		const auto resource = single_audio_resource (view, *bound_asset);
++		const auto resource_id = resource.id;
++		auto transaction = view.edit ().value ();
 +		set_origin (transaction, "Record Ardour audio source");
-+		transaction.confirmLocator (resource_id, postproject::fileLocator (source_path).value ()).value ();
++		const auto uri = postproject::fileLocator (source_path).value ();
++		if (std::none_of (resource.locators.begin (), resource.locators.end (),
++		                  [&uri] (const auto& locator) { return locator.uri == uri; })) {
++			transaction.confirmLocator (resource_id, uri).value ();
++		}
 +		transaction.observeResourceContent (resource_id, source_path).value ();
 +		transaction.commit ().value ();
 +		return;
 +	}
 +
 +	const postproject::LocatorIdentity locator {postproject::fileLocator (source_path).value (), std::nullopt};
-+	const auto known = production.findKnownMediaByLocator (locator, 2).value ();
++	const auto known = view.findKnownMediaByLocator (locator, 2).value ();
 +	if (known.items.size () > 1) {
 +		throw std::runtime_error ("audio source locator identifies several PostProject assets");
 +	}
 +
-+	auto transaction = production.beginTransaction ().value ();
++	auto transaction = view.edit ().value ();
 +	set_origin (transaction, "Record Ardour audio source");
 +	postproject::AssetId asset_id = known.items.empty ()
 +	                                ? transaction.importMedia (source_path, std::filesystem::path (source_path).filename ().string ()).value ()
@@ -90,15 +114,16 @@ index 000000000..082538d3f
 +
 +std::optional<std::string>
 +resolve_missing_source (const std::string& production_path,
-+                        const std::string& missing_path,
++                        const std::string& source_id,
 +                        const std::vector<std::string>& search_directories)
 +{
 +	auto production = postproject::Production::open (production_path).value ();
-+	const postproject::LocatorIdentity locator {postproject::fileLocator (missing_path).value (), std::nullopt};
-+	const auto known = production.findKnownMediaByLocator (locator, 2).value ();
-+	if (known.items.size () != 1) {
++	auto view = production.readSession ().value ();
++	const auto asset_id = asset_for_source_id (view, source_id);
++	if (!asset_id) {
 +		return std::nullopt;
 +	}
++	const auto resource_id = single_audio_resource (view, *asset_id).id;
 +
 +	auto options = postproject::ResolutionOptions::create().value();
 +	std::vector<std::string> unique_directories;
@@ -110,15 +135,15 @@ index 000000000..082538d3f
 +	}
 +	options.setVerification (postproject::VerificationMode::content).value();
 +
-+	const auto resolutions = production.resolveAsset (known.items.front ().asset_id, options).value ();
++	const auto resolutions = view.resolveAsset (*asset_id, options).value ();
 +	for (const auto& representation : resolutions) {
 +		for (const auto& resource : representation.resources) {
-+			if (resource.resource_id != known.items.front ().resource_id ||
-+			    resource.state != postproject::ResourceResolutionState::resolved_exact ||
-+			    resource.candidates.size () != 1) {
++			const bool exact = resource.state() == postproject::ResourceResolutionState::resolved_exact;
++			const bool known = resource.state() == postproject::ResourceResolutionState::online_at_known_locator;
++			if (resource.resource_id != resource_id || (!exact && !known) || resource.candidates().size () != 1) {
 +				continue;
 +			}
-+			return postproject::locatorFilePath (resource.candidates.front ().uri).value ();
++			return postproject::locatorFilePath (resource.candidates().front ().uri).value ();
 +		}
 +	}
 +	return std::nullopt;
@@ -127,10 +152,13 @@ index 000000000..082538d3f
 +} // namespace ArdourPostProject
 diff --git a/gtk2_ardour/postproject_resolver.h b/gtk2_ardour/postproject_resolver.h
 new file mode 100644
-index 000000000..437130e9a
+index 000000000..4df210d29
 --- /dev/null
 +++ b/gtk2_ardour/postproject_resolver.h
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,18 @@
++// SPDX-FileCopyrightText: 2026 Erich Seifert <dev@erichseifert.de>
++// SPDX-License-Identifier: GPL-2.0-or-later
++
 +#pragma once
 +
 +#include <optional>
@@ -142,8 +170,7 @@ index 000000000..437130e9a
 +void record_source (const std::string& production_path, const std::string& source_id, const std::string& source_path);
 +
 +std::optional<std::string> resolve_missing_source (const std::string& production_path,
-+                                                   const std::string& missing_path,
++                                                   const std::string& source_id,
 +                                                   const std::vector<std::string>& search_directories);
 +
 +} // namespace ArdourPostProject
-+

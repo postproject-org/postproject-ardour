@@ -3,10 +3,3 @@
 0003-Integrate-optional-PostProject-recovery.patch
 0004-Identify-missing-sources-for-recovery.patch
 0005-Allow-disabling-PostProject-discovery.patch
-0006-License-PostProject-pilot-sources.patch
-0007-Accept-verified-known-audio-locations.patch
-0008-Inspect-typed-object-reference-alternatives.patch
-0009-Observe-saved-audio-through-its-decision-view.patch
-0010-Refuse-ambiguous-original-audio-representations.patch
-0011-Inspect-validated-representation-content.patch
-0012-Inspect-checked-resolution-outcomes.patch

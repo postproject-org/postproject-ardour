@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Erich Seifert <dev@erichseifert.de>
 Date: Thu, 1 Oct 2026 06:38:35 +0200
-Subject: [PATCH 4/7] Identify missing sources for recovery
+Subject: [PATCH 4/5] Identify missing sources for recovery
 
 
 diff --git a/gtk2_ardour/ardour_ui.cc b/gtk2_ardour/ardour_ui.cc
@@ -53,99 +53,6 @@ index a712a832b..172805fd4 100644
  		if (replacement) {
  			s->set_missing_file_replacement_path (*replacement);
  			return 0;
-diff --git a/gtk2_ardour/postproject_adapter.cc b/gtk2_ardour/postproject_adapter.cc
-index fa681789e..4285ebaf0 100644
---- a/gtk2_ardour/postproject_adapter.cc
-+++ b/gtk2_ardour/postproject_adapter.cc
-@@ -67,7 +67,7 @@ record_session (ARDOUR::Session& session) noexcept
- }
- 
- std::optional<std::string>
--resolve_missing_source (ARDOUR::Session& session, const std::string& missing_path) noexcept
-+resolve_missing_source (ARDOUR::Session& session, const std::string& source_id, const std::string& missing_path) noexcept
- {
- 	const char* production = production_path ();
- 	if (production == nullptr) {
-@@ -81,7 +81,7 @@ resolve_missing_source (ARDOUR::Session& session, const std::string& missing_pat
- 	}
- 
- 	try {
--		return resolve_missing_source (production, missing_path, directories);
-+		return resolve_missing_source (production, source_id, directories);
- 	} catch (const postproject::Exception& error) {
- 		report_error (error);
- 	} catch (const std::exception& error) {
-@@ -91,4 +91,3 @@ resolve_missing_source (ARDOUR::Session& session, const std::string& missing_pat
- }
- 
- } // namespace ArdourPostProject
--
-diff --git a/gtk2_ardour/postproject_adapter.h b/gtk2_ardour/postproject_adapter.h
-index 5e54b7b4d..f52404369 100644
---- a/gtk2_ardour/postproject_adapter.h
-+++ b/gtk2_ardour/postproject_adapter.h
-@@ -10,7 +10,8 @@ class Session;
- namespace ArdourPostProject {
- 
- void record_session (ARDOUR::Session& session) noexcept;
--std::optional<std::string> resolve_missing_source (ARDOUR::Session& session, const std::string& missing_path) noexcept;
-+std::optional<std::string> resolve_missing_source (ARDOUR::Session& session,
-+                                                   const std::string& source_id,
-+                                                   const std::string& missing_path) noexcept;
- 
- } // namespace ArdourPostProject
--
-diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
-index 082538d3f..ee0d8fe5f 100644
---- a/gtk2_ardour/postproject_resolver.cc
-+++ b/gtk2_ardour/postproject_resolver.cc
-@@ -78,15 +78,15 @@ record_source (const std::string& production_path, const std::string& source_id,
- 
- std::optional<std::string>
- resolve_missing_source (const std::string& production_path,
--                        const std::string& missing_path,
-+                        const std::string& source_id,
-                         const std::vector<std::string>& search_directories)
- {
- 	auto production = postproject::Production::open (production_path).value ();
--	const postproject::LocatorIdentity locator {postproject::fileLocator (missing_path).value (), std::nullopt};
--	const auto known = production.findKnownMediaByLocator (locator, 2).value ();
--	if (known.items.size () != 1) {
-+	const auto asset_id = asset_for_source_id (production, source_id);
-+	if (!asset_id) {
- 		return std::nullopt;
- 	}
-+	const auto resource_id = single_audio_resource (production, *asset_id);
- 
- 	auto options = postproject::ResolutionOptions::create().value();
- 	std::vector<std::string> unique_directories;
-@@ -98,10 +98,10 @@ resolve_missing_source (const std::string& production_path,
- 	}
- 	options.setVerification (postproject::VerificationMode::content).value();
- 
--	const auto resolutions = production.resolveAsset (known.items.front ().asset_id, options).value ();
-+	const auto resolutions = production.resolveAsset (*asset_id, options).value ();
- 	for (const auto& representation : resolutions) {
- 		for (const auto& resource : representation.resources) {
--			if (resource.resource_id != known.items.front ().resource_id ||
-+			if (resource.resource_id != resource_id ||
- 			    resource.state != postproject::ResourceResolutionState::resolved_exact ||
- 			    resource.candidates.size () != 1) {
- 				continue;
-diff --git a/gtk2_ardour/postproject_resolver.h b/gtk2_ardour/postproject_resolver.h
-index 437130e9a..cf2adeab4 100644
---- a/gtk2_ardour/postproject_resolver.h
-+++ b/gtk2_ardour/postproject_resolver.h
-@@ -9,8 +9,7 @@ namespace ArdourPostProject {
- void record_source (const std::string& production_path, const std::string& source_id, const std::string& source_path);
- 
- std::optional<std::string> resolve_missing_source (const std::string& production_path,
--                                                   const std::string& missing_path,
-+                                                   const std::string& source_id,
-                                                    const std::vector<std::string>& search_directories);
- 
- } // namespace ArdourPostProject
--
 diff --git a/libs/ardour/ardour/session.h b/libs/ardour/ardour/session.h
 index ceaa3f904..e56f68346 100644
 --- a/libs/ardour/ardour/session.h
