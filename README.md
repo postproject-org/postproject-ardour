@@ -68,13 +68,6 @@ The patches are intentionally narrow:
 | `0003` | Connect saves and missing-source recovery when the package exists |
 | `0004` | Pass Ardour's persisted source ID into recovery |
 | `0005` | Add the explicit upstream-only build switch |
-| `0006` | Record the pilot source licences |
-| `0007` | Accept a later content-verified known locator |
-| `0008` | Inspect typed object references through their read-only discriminator |
-| `0009` | Observe saved audio through its decision view; reject truncated representation reads |
-| `0010` | Refuse multiple eligible originals through one retained view |
-| `0011` | Inspect the checked representation content value |
-| `0012` | Inspect state and candidates from the checked resolution outcome |
 
 ## Build and test
 
