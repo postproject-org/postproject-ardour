@@ -1,0 +1,33 @@
+From 7e6a0946ffcbf68855b25dbb45ba2c3391795fa1 Mon Sep 17 00:00:00 2001
+From: Erich Seifert <dev@erichseifert.de>
+Date: Thu, 8 Oct 2026 03:07:44 +0200
+Subject: [PATCH] Inspect checked resolution outcomes
+
+---
+ gtk2_ardour/postproject_resolver.cc | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
+index 09d3d91c2..79f80969a 100644
+--- a/gtk2_ardour/postproject_resolver.cc
++++ b/gtk2_ardour/postproject_resolver.cc
+@@ -126,12 +126,12 @@ resolve_missing_source (const std::string& production_path,
+ 	const auto resolutions = view.resolveAsset (*asset_id, options).value ();
+ 	for (const auto& representation : resolutions) {
+ 		for (const auto& resource : representation.resources) {
+-			const bool exact = resource.state == postproject::ResourceResolutionState::resolved_exact;
+-			const bool known = resource.state == postproject::ResourceResolutionState::online_at_known_locator;
+-			if (resource.resource_id != resource_id || (!exact && !known) || resource.candidates.size () != 1) {
++			const bool exact = resource.state() == postproject::ResourceResolutionState::resolved_exact;
++			const bool known = resource.state() == postproject::ResourceResolutionState::online_at_known_locator;
++			if (resource.resource_id != resource_id || (!exact && !known) || resource.candidates().size () != 1) {
+ 				continue;
+ 			}
+-			return postproject::locatorFilePath (resource.candidates.front ().uri).value ();
++			return postproject::locatorFilePath (resource.candidates().front ().uri).value ();
+ 		}
+ 	}
+ 	return std::nullopt;
+-- 
+2.55.0
+

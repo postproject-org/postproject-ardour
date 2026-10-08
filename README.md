@@ -74,6 +74,7 @@ The patches are intentionally narrow:
 | `0009` | Observe saved audio through its decision view; reject truncated representation reads |
 | `0010` | Refuse multiple eligible originals through one retained view |
 | `0011` | Inspect the checked representation content value |
+| `0012` | Inspect state and candidates from the checked resolution outcome |
 
 ## Build and test
 
