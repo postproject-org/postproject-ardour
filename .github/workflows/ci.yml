@@ -24,7 +24,7 @@ jobs:
   ardour:
     name: Ardour ${{ matrix.postproject }} PostProject
     runs-on: ubuntu-latest
-    container: archlinux:latest
+    container: ghcr.io/archlinux/archlinux:latest
     strategy:
       fail-fast: false
       matrix:
