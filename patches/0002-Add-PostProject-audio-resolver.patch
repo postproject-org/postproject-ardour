@@ -9,7 +9,7 @@ new file mode 100644
 index 000000000..79f80969a
 --- /dev/null
 +++ b/gtk2_ardour/postproject_resolver.cc
-@@ -0,0 +1,140 @@
+@@ -0,0 +1,141 @@
 +// SPDX-FileCopyrightText: 2026 Erich Seifert <dev@erichseifert.de>
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
@@ -125,15 +125,16 @@ index 000000000..79f80969a
 +	}
 +	const auto resource_id = single_audio_resource (view, *asset_id).id;
 +
-+	auto options = postproject::ResolutionOptions::create().value();
++	postproject::ResolutionConfig config;
 +	std::vector<std::string> unique_directories;
 +	for (const auto& directory : search_directories) {
 +		if (!directory.empty () && std::find (unique_directories.begin (), unique_directories.end (), directory) == unique_directories.end ()) {
 +			unique_directories.push_back (directory);
-+			options.addSearchDirectory (directory).value();
++			config.search_directories.emplace_back (directory);
 +		}
 +	}
-+	options.setVerification (postproject::VerificationMode::content).value();
++	config.verification = postproject::VerificationMode::content;
++	auto options = postproject::ResolutionOptions::create(config).value();
 +
 +	const auto resolutions = view.resolveAsset (*asset_id, options).value ();
 +	for (const auto& representation : resolutions) {

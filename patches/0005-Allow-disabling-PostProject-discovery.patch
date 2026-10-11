@@ -22,9 +22,9 @@ index af0e5cb8e..a6e8a45a7 100644
      autowaf.check_pkg(conf, 'x11', uselib_store='X11', atleast_version='1.1', mandatory=False)
      autowaf.check_pkg(conf, 'pangoft2', uselib_store='PANGOFT2', atleast_version='1.36.8', mandatory=False)
      autowaf.check_pkg(conf, 'fontconfig', uselib_store='FONTCONFIG')
--    autowaf.check_pkg(conf, 'postproject', uselib_store='POSTPROJECT', atleast_version='0.8', mandatory=False)
+-    autowaf.check_pkg(conf, 'postproject', uselib_store='POSTPROJECT', atleast_version='0.9', mandatory=False)
 +    if not Options.options.no_postproject:
-+        autowaf.check_pkg(conf, 'postproject', uselib_store='POSTPROJECT', atleast_version='0.8', mandatory=False)
++        autowaf.check_pkg(conf, 'postproject', uselib_store='POSTPROJECT', atleast_version='0.9', mandatory=False)
  
      conf.check(header_name='unistd.h', define_name='HAVE_UNISTD_H',mandatory=False)
  
