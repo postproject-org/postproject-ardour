@@ -6,9 +6,9 @@ selected [PostProject](https://postproject.org/) production and recover a
 renamed source by content. It exercises PostProject's installed `pkg-config`
 package and exception-enabled C++17 projection in an audio application.
 
-The development patches require the 0.8 SDK candidate. Resolution options use
+The patches require the PostProject 0.8 SDK. Resolution options use
 fallible factories and immediate setter checks; failed setup follows the
-existing exception/fallback path. Final candidate host qualification is pending.
+existing exception/fallback path.
 
 This is not an Ardour fork. `UPSTREAM` pins one reviewed Ardour revision;
 `patches/` contains the small integration on top. The work has not been
