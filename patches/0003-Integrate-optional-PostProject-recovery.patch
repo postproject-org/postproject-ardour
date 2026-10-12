@@ -188,7 +188,7 @@ index 000000000..1645f548f
 +
 +} // namespace ArdourPostProject
 diff --git a/gtk2_ardour/wscript b/gtk2_ardour/wscript
-index c3a5e48d9..af0e5cb8e 100644
+index c3a5e48d9..810e63c17 100644
 --- a/gtk2_ardour/wscript
 +++ b/gtk2_ardour/wscript
 @@ -513,6 +513,7 @@ def configure(conf):

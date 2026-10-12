@@ -6,7 +6,7 @@ Subject: [PATCH 2/5] Add PostProject audio resolver
 
 diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
 new file mode 100644
-index 000000000..79f80969a
+index 000000000..e96623ee2
 --- /dev/null
 +++ b/gtk2_ardour/postproject_resolver.cc
 @@ -0,0 +1,141 @@
@@ -98,7 +98,7 @@ index 000000000..79f80969a
 +	}
 +
 +	const postproject::LocatorIdentity locator {postproject::fileLocator (source_path).value (), std::nullopt};
-+	const auto known = view.findKnownMediaByLocator (locator, 2).value ();
++	const auto known = view.findKnownMedia (locator, 2).value ();
 +	if (known.items.size () > 1) {
 +		throw std::runtime_error ("audio source locator identifies several PostProject assets");
 +	}

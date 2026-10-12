@@ -5,7 +5,7 @@ Subject: [PATCH 5/5] Allow disabling PostProject discovery
 
 
 diff --git a/gtk2_ardour/wscript b/gtk2_ardour/wscript
-index af0e5cb8e..a6e8a45a7 100644
+index 810e63c17..a3b4aafc6 100644
 --- a/gtk2_ardour/wscript
 +++ b/gtk2_ardour/wscript
 @@ -496,7 +496,8 @@ def enoify (major, minor):
