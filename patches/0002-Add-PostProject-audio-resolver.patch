@@ -6,10 +6,10 @@ Subject: [PATCH 2/5] Add PostProject audio resolver
 
 diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
 new file mode 100644
-index 000000000..171c51969
+index 000000000..e420e62ad
 --- /dev/null
 +++ b/gtk2_ardour/postproject_resolver.cc
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,139 @@
 +// SPDX-FileCopyrightText: 2026 Erich Seifert <dev@erichseifert.de>
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
@@ -26,9 +26,9 @@ index 000000000..171c51969
 +
 +constexpr std::string_view source_id_scheme = "org.ardour:source_id";
 +
-+void set_origin (postproject::Transaction& transaction, const std::string& message)
++postproject::RevisionContext origin (const std::string& message)
 +{
-+	transaction.setRevisionContext ({{postproject::OriginIdentity {"org.ardour", std::nullopt, std::nullopt}}, message}).value ();
++	return {{postproject::OriginIdentity {"org.ardour", std::nullopt, std::nullopt}}, message};
 +}
 +
 +template <typename Reader>
@@ -85,8 +85,7 @@ index 000000000..171c51969
 +	if (bound_asset) {
 +		const auto resource = single_audio_resource (view, *bound_asset);
 +		const auto resource_id = resource.id;
-+		auto transaction = view.edit ().value ();
-+		set_origin (transaction, "Record Ardour audio source");
++		auto transaction = view.edit (origin ("Record Ardour audio source")).value ();
 +		const auto uri = postproject::fileLocator (source_path).value ();
 +		if (std::none_of (resource.locators.begin (), resource.locators.end (),
 +		                  [&uri] (const auto& locator) { return locator.uri == uri; })) {
@@ -103,8 +102,7 @@ index 000000000..171c51969
 +		throw std::runtime_error ("audio source locator identifies several PostProject assets");
 +	}
 +
-+	auto transaction = view.edit ().value ();
-+	set_origin (transaction, "Record Ardour audio source");
++	auto transaction = view.edit (origin ("Record Ardour audio source")).value ();
 +	postproject::AssetId asset_id = known.items.empty ()
 +	                                ? transaction.importMedia (source_path, std::filesystem::path (source_path).filename ().string ()).value ().asset_id
 +	                                : known.items.front ().asset_id;

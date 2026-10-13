@@ -130,7 +130,7 @@ try {
 
 	const auto asset_id = objects.front ().assetId ().value ();
 	{
-		auto edit = production.beginTransaction ().value ();
+		auto edit = production.edit ().value ();
 		edit.addRepresentation (asset_id, postproject::RepresentationKind::original,
 		                        postproject::MediaSource (recovered.string ())).value ();
 		const auto receipt = edit.commit ().value ();
