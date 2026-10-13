@@ -6,7 +6,7 @@ Subject: [PATCH 2/5] Add PostProject audio resolver
 
 diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
 new file mode 100644
-index 000000000..e96623ee2
+index 000000000..171c51969
 --- /dev/null
 +++ b/gtk2_ardour/postproject_resolver.cc
 @@ -0,0 +1,141 @@
@@ -106,7 +106,7 @@ index 000000000..e96623ee2
 +	auto transaction = view.edit ().value ();
 +	set_origin (transaction, "Record Ardour audio source");
 +	postproject::AssetId asset_id = known.items.empty ()
-+	                                ? transaction.importMedia (source_path, std::filesystem::path (source_path).filename ().string ()).value ()
++	                                ? transaction.importMedia (source_path, std::filesystem::path (source_path).filename ().string ()).value ().asset_id
 +	                                : known.items.front ().asset_id;
 +	transaction.addExternalIdentifier (postproject::ObjectRef::asset (asset_id), identifier).value ();
 +	transaction.commit ().value ();
