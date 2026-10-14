@@ -7,8 +7,10 @@ renamed source by content. It exercises PostProject's installed `pkg-config`
 package and exception-enabled C++17 projection in an audio application.
 
 The patches require matching PostProject 0.9 headers and library (ABI 57).
-Recovery uses verified selection: partial verification and incomplete searches
-leave the source missing. Failed setup follows the existing exception/fallback path.
+Recovery uses verified selection for discovered files. An already recorded
+address may be reused with positive sampled evidence; this does not establish
+full verification. Incomplete searches or mismatched evidence leave the source
+missing. Failed setup follows the existing exception/fallback path.
 
 This is not an Ardour fork. `UPSTREAM` pins one reviewed Ardour revision;
 `patches/` contains the small integration on top. The work has not been

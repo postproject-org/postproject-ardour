@@ -1,21 +1,21 @@
-From 0b0f35e56404829227ba5ac01b1b6b69ada6c7f1 Mon Sep 17 00:00:00 2001
+From 72fe86ca63fd73b8cde17f7838c650d61f264a04 Mon Sep 17 00:00:00 2001
 From: Erich Seifert <dev@erichseifert.de>
 Date: Thu, 1 Oct 2026 06:35:21 +0200
 Subject: [PATCH] Add PostProject audio resolver
 
 ---
- gtk2_ardour/postproject_resolver.cc | 135 ++++++++++++++++++++++++++++
+ gtk2_ardour/postproject_resolver.cc | 156 ++++++++++++++++++++++++++++
  gtk2_ardour/postproject_resolver.h  |  18 ++++
- 2 files changed, 153 insertions(+)
+ 2 files changed, 174 insertions(+)
  create mode 100644 gtk2_ardour/postproject_resolver.cc
  create mode 100644 gtk2_ardour/postproject_resolver.h
 
 diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
 new file mode 100644
-index 0000000..a46c857
+index 0000000..73940cc
 --- /dev/null
 +++ b/gtk2_ardour/postproject_resolver.cc
-@@ -0,0 +1,135 @@
+@@ -0,0 +1,156 @@
 +// SPDX-FileCopyrightText: 2026 Erich Seifert <dev@erichseifert.de>
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
@@ -145,6 +145,27 @@ index 0000000..a46c857
 +		if (selected.has_value () && selected->locations.size () == 1 &&
 +		    selected->locations.front ().resource_id == resource_id) {
 +			return postproject::locatorFilePath (selected->locations.front ().candidate.uri).value ();
++		}
++		// Preserve reuse of an address another host already recorded. Samples
++		// validate that known address, but never certify newly discovered audio.
++		for (const auto& resource : representation.resources) {
++			if (resource.resource_id != resource_id || resource.state () != postproject::ResourceResolutionState::online_at_known_locator ||
++			    representation.availability != postproject::RepresentationAvailability::online || resource.candidates ().size () != 1) {
++				continue;
++			}
++			const auto blocked = [] (const auto& evidence) {
++				return evidence.kind == postproject::EvidenceKind::search_truncated || evidence.kind == postproject::EvidenceKind::discovery_error ||
++				       evidence.kind == postproject::EvidenceKind::fingerprint_not_verified || evidence.kind == postproject::EvidenceKind::fingerprint_mismatch ||
++				       evidence.kind == postproject::EvidenceKind::conflicting_candidate;
++			};
++			const auto& candidate = resource.candidates ().front ();
++			const bool sampled = std::any_of (candidate.evidence.begin (), candidate.evidence.end (), [] (const auto& evidence) {
++				return evidence.kind == postproject::EvidenceKind::partial_fingerprint_match;
++			});
++			if (sampled && !std::any_of (resource.evidence.begin (), resource.evidence.end (), blocked) &&
++			    !std::any_of (candidate.evidence.begin (), candidate.evidence.end (), blocked)) {
++				return postproject::locatorFilePath (candidate.uri).value ();
++			}
 +		}
 +	}
 +	return std::nullopt;
