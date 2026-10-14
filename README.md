@@ -6,9 +6,9 @@ selected [PostProject](https://postproject.org/) production and recover a
 renamed source by content. It exercises PostProject's installed `pkg-config`
 package and exception-enabled C++17 projection in an audio application.
 
-The patches require the PostProject 0.9 SDK. Resolution options use
-one checked configuration; failed setup follows the
-existing exception/fallback path.
+The patches require matching PostProject 0.9 headers and library (ABI 57).
+Recovery uses verified selection: partial verification and incomplete searches
+leave the source missing. Failed setup follows the existing exception/fallback path.
 
 This is not an Ardour fork. `UPSTREAM` pins one reviewed Ardour revision;
 `patches/` contains the small integration on top. The work has not been

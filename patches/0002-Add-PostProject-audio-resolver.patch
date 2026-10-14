@@ -1,15 +1,21 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 0b0f35e56404829227ba5ac01b1b6b69ada6c7f1 Mon Sep 17 00:00:00 2001
 From: Erich Seifert <dev@erichseifert.de>
 Date: Thu, 1 Oct 2026 06:35:21 +0200
-Subject: [PATCH 2/5] Add PostProject audio resolver
+Subject: [PATCH] Add PostProject audio resolver
 
+---
+ gtk2_ardour/postproject_resolver.cc | 135 ++++++++++++++++++++++++++++
+ gtk2_ardour/postproject_resolver.h  |  18 ++++
+ 2 files changed, 153 insertions(+)
+ create mode 100644 gtk2_ardour/postproject_resolver.cc
+ create mode 100644 gtk2_ardour/postproject_resolver.h
 
 diff --git a/gtk2_ardour/postproject_resolver.cc b/gtk2_ardour/postproject_resolver.cc
 new file mode 100644
-index 000000000..e420e62ad
+index 0000000..a46c857
 --- /dev/null
 +++ b/gtk2_ardour/postproject_resolver.cc
-@@ -0,0 +1,139 @@
+@@ -0,0 +1,135 @@
 +// SPDX-FileCopyrightText: 2026 Erich Seifert <dev@erichseifert.de>
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
@@ -96,9 +102,8 @@ index 000000000..e420e62ad
 +		return;
 +	}
 +
-+	const postproject::LocatorIdentity locator {postproject::fileLocator (source_path).value (), std::nullopt};
-+	const auto known = view.findKnownMedia (locator, 2).value ();
-+	if (known.items.size () > 1) {
++	const auto known = view.findKnownMedia (std::filesystem::path (source_path), 2).value ();
++	if (known.next_cursor || known.items.size () > 1) {
 +		throw std::runtime_error ("audio source locator identifies several PostProject assets");
 +	}
 +
@@ -136,13 +141,10 @@ index 000000000..e420e62ad
 +
 +	const auto resolutions = view.resolveAsset (*asset_id, options).value ();
 +	for (const auto& representation : resolutions) {
-+		for (const auto& resource : representation.resources) {
-+			const bool exact = resource.state() == postproject::ResourceResolutionState::resolved_exact;
-+			const bool known = resource.state() == postproject::ResourceResolutionState::online_at_known_locator;
-+			if (resource.resource_id != resource_id || (!exact && !known) || resource.candidates().size () != 1) {
-+				continue;
-+			}
-+			return postproject::locatorFilePath (resource.candidates().front ().uri).value ();
++		const auto selected = representation.selectVerified ();
++		if (selected.has_value () && selected->locations.size () == 1 &&
++		    selected->locations.front ().resource_id == resource_id) {
++			return postproject::locatorFilePath (selected->locations.front ().candidate.uri).value ();
 +		}
 +	}
 +	return std::nullopt;
@@ -151,7 +153,7 @@ index 000000000..e420e62ad
 +} // namespace ArdourPostProject
 diff --git a/gtk2_ardour/postproject_resolver.h b/gtk2_ardour/postproject_resolver.h
 new file mode 100644
-index 000000000..4df210d29
+index 0000000..4df210d
 --- /dev/null
 +++ b/gtk2_ardour/postproject_resolver.h
 @@ -0,0 +1,18 @@
