@@ -35,13 +35,13 @@ void write_u32 (std::ostream& output, std::uint32_t value)
 	write_u16 (output, static_cast<std::uint16_t> (value >> 16));
 }
 
-void write_stereo_wave (const std::filesystem::path& path)
+void write_stereo_wave (const std::filesystem::path& path, std::uint32_t seconds = 1)
 {
 	constexpr std::uint32_t sample_rate = 48000;
 	constexpr std::uint16_t channels = 2;
 	constexpr std::uint16_t bits_per_sample = 16;
-	constexpr std::uint32_t frames = sample_rate;
-	constexpr std::uint32_t data_size = frames * channels * (bits_per_sample / 8);
+	const std::uint32_t frames = sample_rate * seconds;
+	const std::uint32_t data_size = frames * channels * (bits_per_sample / 8);
 
 	std::filesystem::create_directories (path.parent_path ());
 	std::ofstream output (path, std::ios::binary | std::ios::trunc);
@@ -153,7 +153,43 @@ try {
 	require (production.latestRevision ().value ()->id == before_ambiguity->id,
 	         "ambiguous decisions do not mutate the production");
 
-	std::cout << "resolved renamed 48 kHz stereo audio without choosing an ambiguity\n";
+	// Eight seconds exceeds the SDK's full-hash threshold. Samples cannot
+	// certify a newly discovered file, but may validate an already recorded address.
+	const auto sampled_project = root / "sampled.pproj";
+	const auto large = root / "session" / "large.wav";
+	const auto moved_large = root / "large-moved" / "large.wav";
+	write_stereo_wave (large, 8);
+	postproject::Production::create (sampled_project.string (), "Sampled audio").value ();
+	ArdourPostProject::record_source (sampled_project.string (), "large-42", large.string ());
+	std::filesystem::create_directories (moved_large.parent_path ());
+	std::filesystem::rename (large, moved_large);
+	require (!ArdourPostProject::resolve_missing_source (
+	             sampled_project.string (), "large-42", {moved_large.parent_path ().string ()}),
+	         "newly discovered sampled audio requires an independent decision");
+	{
+		auto shared = postproject::Production::open (sampled_project.string ()).value ();
+		const auto references = shared.findByExternalIdentifier ("org.ardour:source_id", "large-42").value ();
+		require (references.size () == 1, "one sampled audio binding");
+		const auto page = shared.representations (references.front ().assetId ().value (), 2).value ();
+		require (!page.next_cursor && page.items.size () == 1 && page.items.front ().resources.size () == 1,
+		         "sampled fixture has one original resource");
+		auto edit = shared.edit ().value ();
+		edit.confirmLocator (page.items.front ().resources.front ().id,
+		                     postproject::fileLocator (moved_large.string ()).value ()).value ();
+		edit.commit ().value ();
+	}
+	const auto sampled_known = ArdourPostProject::resolve_missing_source (sampled_project.string (), "large-42", {});
+	require (sampled_known && std::filesystem::equivalent (*sampled_known, moved_large),
+	         "reuse a recorded address with positive sampled evidence");
+	{
+		std::fstream changed (moved_large, std::ios::binary | std::ios::in | std::ios::out);
+		changed.seekp (44); // Change a sample in the first fingerprinted region.
+		changed.put ('\0');
+		require (static_cast<bool> (changed), "change sampled audio content");
+	}
+	require (!ArdourPostProject::resolve_missing_source (sampled_project.string (), "large-42", {}),
+	         "a recorded address does not override mismatched content evidence");
+	std::cout << "resolved verified audio and recorded sampled addresses without choosing an ambiguity\n";
 	return 0;
 } catch (const std::exception& error) {
 	std::cerr << error.what () << '\n';
